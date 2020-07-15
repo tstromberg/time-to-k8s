@@ -193,6 +193,7 @@ func main() {
 	// quick cleanup loop
 	for binary, commands := range testCases {
 		cleanup := strings.Split(commands[1], " ")
+		klog.Infof("cleaning up %q with arguments: %v", binary, cleanup)
 		Run(exec.Command(binary, cleanup...))
 	}
 
