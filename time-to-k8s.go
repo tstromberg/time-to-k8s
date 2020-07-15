@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -78,7 +79,7 @@ func RetryRun(cmd *exec.Cmd) (*RunResult, error) {
 		rr.Duration = duration
 
 		if err == nil {
-			klog.Infof("%s succeeded after %d attempts (duration: %s)", attempts, duration)
+			klog.V(1).Infof("%s succeeded after %d attempts (duration: %s)", cmd.Args, attempts, duration)
 			return rr, err
 		}
 
@@ -98,7 +99,7 @@ func ds(d time.Duration) string {
 func runIteration(binary string, setupCmd string, cleanupCmd string) (ExperimentResult, error) {
 	setup := strings.Split(setupCmd, " ")
 	cleanup := strings.Split(cleanupCmd, " ")
-	klog.Infof("starting %s iteration. setup: %v, cleanup: %v", binary, setup, cleanup)
+	klog.Infof("starting %q iteration. initialization args: %v, cleanup args: %v", binary, setup, cleanup)
 
 	e := ExperimentResult{Program: binary}
 
@@ -133,14 +134,16 @@ func runIteration(binary string, setupCmd string, cleanupCmd string) (Experiment
 		extraArgs = []string{"--context", "minikube"}
 	}
 
-	args := append(extraArgs, "get", "po", "-A", "--field-selector", "status.phase=Running")
+	args := append(extraArgs, "get", "po", "-A")
 	for {
 		rr, err = RetryRun(exec.Command("kubectl", args...))
 		if err != nil {
 			return e, fmt.Errorf("%s failed: %w", rr, err)
 		}
 		e.Running += rr.Duration
-		if strings.Contains(rr.Stdout.String(), "Running") {
+
+		// During startup, the apiserver returns an empty list. Don't consider it valid until a kube-system pod is seen.
+		if strings.Contains(rr.Stdout.String(), "kube-system") {
 			break
 		}
 	}
@@ -177,7 +180,7 @@ func main() {
 
 	c := csv.NewWriter(tf)
 
-	c.Write([]string{"program", "version", "startup duration (seconds)", "deployment duration (seconds)", "execution duration (seconds)", "total duration (seconds)"})
+	c.Write([]string{"program", "platform", "version", "startup (seconds)", "apiserver ready (seconds)", "deployment (seconds)", "deployment complete (seconds)", "total duration (seconds)"})
 	klog.Infof("Writing output to %s", tf.Name())
 	c.Flush()
 
@@ -201,7 +204,7 @@ func main() {
 				klog.Exitf("%s experiment failed: %v", binary, err)
 			}
 			klog.Infof("Updating results in %s with: %+v", tf.Name(), e)
-			c.Write([]string{binary, e.Version, ds(e.Startup), ds(e.Deployment), ds(e.Execution), ds(e.Total)})
+			c.Write([]string{binary, runtime.GOOS, e.Version, ds(e.Startup), ds(e.Running), ds(e.Deployment), ds(e.Execution), ds(e.Total)})
 			c.Flush()
 		}
 	}
