@@ -25,6 +25,7 @@ type ExperimentResult struct {
 	Deployment time.Duration
 	Execution  time.Duration
 	Total      time.Duration
+	Timestamp  time.Time
 }
 
 // RunResult stores the result of an cmd.Run call
@@ -101,7 +102,7 @@ func runIteration(binary string, setupCmd string, cleanupCmd string) (Experiment
 	cleanup := strings.Split(cleanupCmd, " ")
 	klog.Infof("starting %q iteration. initialization args: %v, cleanup args: %v", binary, setup, cleanup)
 
-	e := ExperimentResult{Program: binary}
+	e := ExperimentResult{Program: binary, Timestamp: time.Now()}
 
 	rr, err := Run(exec.Command(binary, "version"))
 	if err != nil {
@@ -180,7 +181,7 @@ func main() {
 
 	c := csv.NewWriter(tf)
 
-	c.Write([]string{"program", "platform", "version", "startup (seconds)", "apiserver ready (seconds)", "deployment (seconds)", "deployment complete (seconds)", "total duration (seconds)"})
+	c.Write([]string{"program", "platform", "iteration", "time", "version", "startup (seconds)", "apiserver ready (seconds)", "deployment (seconds)", "deployment complete (seconds)", "total duration (seconds)"})
 	klog.Infof("Writing output to %s", tf.Name())
 	c.Flush()
 
@@ -197,15 +198,24 @@ func main() {
 		Run(exec.Command(binary, cleanup...))
 	}
 
-	for i := 0; i < *iterationCount; i++ {
-		klog.Infof("STARTING ITERATION COUNT %d of %d", i, *iterationCount)
+	for i := 0; i <= *iterationCount; i++ {
+		if i == 0 {
+			klog.Infof("Starting dry-run iteration - will not record results")
+		} else {
+			klog.Infof("STARTING ITERATION COUNT %d of %d", i, *iterationCount)
+		}
+
 		for binary, commands := range testCases {
 			e, err := runIteration(binary, commands[0], commands[1])
 			if err != nil {
 				klog.Exitf("%s experiment failed: %v", binary, err)
 			}
-			klog.Infof("Updating results in %s with: %+v", tf.Name(), e)
-			c.Write([]string{binary, runtime.GOOS, e.Version, ds(e.Startup), ds(e.Running), ds(e.Deployment), ds(e.Execution), ds(e.Total)})
+			klog.Infof("Result: %+v", e)
+			if i == 0 {
+				continue
+			}
+			klog.Infof("Updating %s ...", tf.Name())
+			c.Write([]string{binary, runtime.GOOS, fmt.Sprintf("%d", i), e.Timestamp.String(), e.Version, ds(e.Startup), ds(e.Running), ds(e.Deployment), ds(e.Execution), ds(e.Total)})
 			c.Flush()
 		}
 	}
