@@ -73,7 +73,7 @@ func RetryRun(cmd *exec.Cmd) (*RunResult, error) {
 	duration := time.Duration(0)
 	attempts := 0
 
-	for attempts < 1000 {
+	for attempts < 5000 {
 		// exec.Cmd can only be executed once, so build a new one)
 		rr, err = Run(exec.Command(cmd.Path, cmd.Args[1:]...))
 		duration += rr.Duration
