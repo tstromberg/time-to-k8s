@@ -105,7 +105,7 @@ func runIteration(name string, setupCmd string, cleanupCmd string) (ExperimentRe
 
 	klog.Infof("starting %q iteration. initialization args: %v, cleanup args: %v", name, setup, cleanup)
 
-	e := ExperimentResult{Name: name, Timestamp: time.Now()}
+	e := ExperimentResult{Name: name, Timestamp: time.Now(), Args: setup}
 
 	rr, err := Run(exec.Command(binary, "version"))
 	if err != nil {
