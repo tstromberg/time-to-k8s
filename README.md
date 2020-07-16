@@ -6,4 +6,5 @@ Assumes that you have k3d, kind, and minikube installed.
 
 Example usage:
 
-`go run . --iterations 5`
+`go get github.com/tstromberg/time-to-k8s && time-to-k8s`
+
