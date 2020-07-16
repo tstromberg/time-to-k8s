@@ -18,7 +18,8 @@ var iterationCount = flag.Int("iterations", 20, "How many runs to execute")
 
 // ExperimentResult stores the result of a single experiment run
 type ExperimentResult struct {
-	Program    string
+	Name       string
+	Args       []string
 	Version    string
 	Startup    time.Duration
 	Running    time.Duration
@@ -97,12 +98,14 @@ func ds(d time.Duration) string {
 	return fmt.Sprintf("%.3f", d.Seconds())
 }
 
-func runIteration(binary string, setupCmd string, cleanupCmd string) (ExperimentResult, error) {
+func runIteration(name string, setupCmd string, cleanupCmd string) (ExperimentResult, error) {
 	setup := strings.Split(setupCmd, " ")
 	cleanup := strings.Split(cleanupCmd, " ")
-	klog.Infof("starting %q iteration. initialization args: %v, cleanup args: %v", binary, setup, cleanup)
+	binary := setup[0]
 
-	e := ExperimentResult{Program: binary, Timestamp: time.Now()}
+	klog.Infof("starting %q iteration. initialization args: %v, cleanup args: %v", name, setup, cleanup)
+
+	e := ExperimentResult{Name: name, Timestamp: time.Now()}
 
 	rr, err := Run(exec.Command(binary, "version"))
 	if err != nil {
@@ -110,7 +113,7 @@ func runIteration(binary string, setupCmd string, cleanupCmd string) (Experiment
 	}
 	e.Version = strings.Split(rr.Stdout.String(), "\n")[0]
 
-	rr, err = Run(exec.Command(binary, setup...))
+	rr, err = Run(exec.Command(binary, setup[1:]...))
 	if err != nil {
 		return e, fmt.Errorf("%s failed: %w", rr, err)
 	}
@@ -164,7 +167,7 @@ func runIteration(binary string, setupCmd string, cleanupCmd string) (Experiment
 	e.Execution = rr.Duration
 	e.Total = e.Startup + e.Running + e.Deployment + e.Execution
 
-	rr, err = Run(exec.Command(binary, cleanup...))
+	rr, err = RetryRun(exec.Command(cleanup[0], cleanup[1:]...))
 	if err != nil {
 		return e, fmt.Errorf("%s failed: %w", rr, err)
 	}
@@ -181,21 +184,23 @@ func main() {
 
 	c := csv.NewWriter(tf)
 
-	c.Write([]string{"program", "platform", "iteration", "time", "version", "startup (seconds)", "apiserver ready (seconds)", "deployment (seconds)", "deployment complete (seconds)", "total duration (seconds)"})
+	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "startup (seconds)", "apiserver ready (seconds)", "deployment (seconds)", "deployment complete (seconds)", "total duration (seconds)"})
 	klog.Infof("Writing output to %s", tf.Name())
 	c.Flush()
 
 	testCases := map[string][]string{
-		"k3d":      []string{"c", "d"},
-		"kind":     []string{"create cluster", "delete cluster"},
-		"minikube": []string{"start", "delete --all"},
+		"minikube":              []string{"minikube start", "minikube delete --all"},
+		"k3d":                   []string{"c", "d"},
+		"kind":                  []string{"create cluster", "delete cluster"},
+		"minikube_refresh_70k":  []string{"minikube start --extra-config etcd.proxy-refresh-interval=70000", "minikube delete --all"},
+		"minikube_refresh_700k": []string{"minikube start --extra-config etcd.proxy-refresh-interval=700000", "minikube delete --all"},
 	}
 
 	// quick cleanup loop
-	for binary, commands := range testCases {
+	for name, commands := range testCases {
 		cleanup := strings.Split(commands[1], " ")
-		klog.Infof("cleaning up %q with arguments: %v", binary, cleanup)
-		Run(exec.Command(binary, cleanup...))
+		klog.Infof("cleaning up %q with arguments: %v", name, cleanup)
+		RetryRun(exec.Command(cleanup[0], cleanup[1:]...))
 	}
 
 	for i := 0; i <= *iterationCount; i++ {
@@ -205,17 +210,17 @@ func main() {
 			klog.Infof("STARTING ITERATION COUNT %d of %d", i, *iterationCount)
 		}
 
-		for binary, commands := range testCases {
-			e, err := runIteration(binary, commands[0], commands[1])
+		for name, commands := range testCases {
+			e, err := runIteration(name, commands[0], commands[1])
 			if err != nil {
-				klog.Exitf("%s experiment failed: %v", binary, err)
+				klog.Exitf("%s experiment failed: %v", name, err)
 			}
 			klog.Infof("Result: %+v", e)
 			if i == 0 {
 				continue
 			}
 			klog.Infof("Updating %s ...", tf.Name())
-			c.Write([]string{binary, runtime.GOOS, fmt.Sprintf("%d", i), e.Timestamp.String(), e.Version, ds(e.Startup), ds(e.Running), ds(e.Deployment), ds(e.Execution), ds(e.Total)})
+			c.Write([]string{name, strings.Join(e.Args, " "), runtime.GOOS, fmt.Sprintf("%d", i), e.Timestamp.String(), e.Version, ds(e.Startup), ds(e.Running), ds(e.Deployment), ds(e.Execution), ds(e.Total)})
 			c.Flush()
 		}
 	}
