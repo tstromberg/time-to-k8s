@@ -189,11 +189,9 @@ func main() {
 	c.Flush()
 
 	testCases := map[string][]string{
-		"minikube":              []string{"minikube start", "minikube delete --all"},
-		"k3d":                   []string{"k3d c", "k3d d"},
-		"kind":                  []string{"kind create cluster", "kind delete cluster"},
-		"minikube_refresh_70k":  []string{"minikube start --extra-config etcd.proxy-refresh-interval=70000", "minikube delete --all"},
-		"minikube_refresh_700k": []string{"minikube start --extra-config etcd.proxy-refresh-interval=700000", "minikube delete --all"},
+		"minikube": []string{"minikube start", "minikube delete --all"},
+		"k3d":      []string{"k3d c", "k3d d"},
+		"kind":     []string{"kind create cluster", "kind delete cluster"},
 	}
 
 	// quick cleanup loop
