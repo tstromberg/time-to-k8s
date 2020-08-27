@@ -1,0 +1,10 @@
+testcases:
+  minikube:
+    setup: minikube start
+    teardown: minikube delete
+  k3d:
+    setup: k3d cluster create
+    teardown: k3d cluster delete
+  kind:
+    setup: kind create cluster
+    teardown: kind delete cluster

@@ -1,0 +1,13 @@
+testcases:
+  minikube-119-hyperkit-none:
+    setup: minikube start --driver=hyperkit --cni=false --kubernetes-version=v1.19.0-rc.4
+    teardown: minikube delete --all
+  minikube-119-hyperkit-none:
+    setup: minikube start --driver=hyperkit --cni=false --kubernetes-version=v1.19.0-rc.4
+    teardown: minikube delete --all
+  minikube-119-hyperkit-none:
+    setup: minikube start --driver=hyperkit --cni=false --kubernetes-version=v1.19.0-rc.4
+    teardown: minikube delete --all
+  minikube-119-hyperkit-none:
+    setup: minikube start --driver=hyperkit --cni=false --kubernetes-version=v1.19.0-rc.4
+    teardown: minikube delete --all
