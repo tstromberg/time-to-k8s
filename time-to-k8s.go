@@ -242,7 +242,7 @@ func main() {
 
 	c := csv.NewWriter(tf)
 
-	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "startup (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "total duration (seconds)"})
+	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "total duration (seconds)"})
 	klog.Infof("Writing output to %s", tf.Name())
 	c.Flush()
 
