@@ -17,7 +17,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var iterationCount = flag.Int("iterations", 10, "How many runs to execute")
+var iterationCount = flag.Int("iterations", 5, "How many runs to execute")
 var configPath = flag.String("config", "", "configuration file to load test cases from")
 var testTimeout = flag.Duration("timeout", 6*time.Minute, "maximum time a test can take")
 
