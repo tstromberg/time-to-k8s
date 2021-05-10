@@ -17,9 +17,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var iterationCount = flag.Int("iterations", 5, "How many runs to execute")
-var configPath = flag.String("config", "", "configuration file to load test cases from")
-var testTimeout = flag.Duration("timeout", 6*time.Minute, "maximum time a test can take")
+var (
+	iterationCount = flag.Int("iterations", 5, "How many runs to execute")
+	configPath     = flag.String("config", "", "configuration file to load test cases from")
+	testTimeout    = flag.Duration("timeout", 6*time.Minute, "maximum time a test can take")
+)
 
 // ExperimentResult stores the result of a single experiment run
 type ExperimentResult struct {
@@ -190,7 +192,8 @@ func runIteration(name string, setupCmd string, cleanupCmd string) (ExperimentRe
 	}
 	e.AppRunning = rr.Duration
 
-	args = append(extraArgs, "exec", "deployment/netcat", "--", "nc", "-v", "localhost", "8080")
+	// kubectl exec into a pod using the deployment to verify that port 8000 works as expected
+	args = append(extraArgs, "exec", "deployment/netcat", "--", "nc", "-v", "localhost", "8000")
 	rr, err = RetryRun(exec.CommandContext(ctx, "kubectl", args...))
 	if err != nil {
 		e.ExitCode = rr.ExitCode
@@ -198,6 +201,7 @@ func runIteration(name string, setupCmd string, cleanupCmd string) (ExperimentRe
 	}
 	e.AppRunning += rr.Duration
 
+	// kubectl exec into a pod using the deployment to verify dns resolution
 	args = append(extraArgs, "exec", "deployment/netcat", "--", "nslookup", "netcat.default")
 	rr, err = RetryRun(exec.CommandContext(ctx, "kubectl", args...))
 	if err != nil {
@@ -295,5 +299,4 @@ func main() {
 			c.Flush()
 		}
 	}
-
 }
