@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -17,9 +18,12 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var iterationCount = flag.Int("iterations", 5, "How many runs to execute")
-var configPath = flag.String("config", "", "configuration file to load test cases from")
-var testTimeout = flag.Duration("timeout", 6*time.Minute, "maximum time a test can take")
+var (
+	iterationCount = flag.Int("iterations", 5, "How many runs to execute")
+	configPath     = flag.String("config", "", "configuration file to load test cases from")
+	testTimeout    = flag.Duration("timeout", 6*time.Minute, "maximum time a test can take")
+	outputPath     = flag.String("output", "", "path to output generated CSV to")
+)
 
 // ExperimentResult stores the result of a single experiment run
 type ExperimentResult struct {
@@ -235,15 +239,20 @@ func main() {
 		klog.Exitf("unmarshal: %w", err)
 	}
 
-	tf, err := ioutil.TempFile("", filepath.Base(*configPath)+".*.csv")
+	var outputFile *os.File
+	if *outputPath == "" {
+		outputFile, err = ioutil.TempFile("", filepath.Base(*configPath)+".*.csv")
+	} else {
+		outputFile, err = os.Create(*outputPath)
+	}
 	if err != nil {
-		klog.Exitf("tempfile: %v", err)
+		klog.Exitf("output file: %v", err)
 	}
 
-	c := csv.NewWriter(tf)
+	c := csv.NewWriter(outputFile)
 
 	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "total duration (seconds)"})
-	klog.Infof("Writing output to %s", tf.Name())
+	klog.Infof("Writing output to %s", outputFile.Name())
 	c.Flush()
 
 	// quick cleanup loop
@@ -273,7 +282,7 @@ func main() {
 			if i == 0 {
 				continue
 			}
-			klog.Infof("Updating %s ...", tf.Name())
+			klog.Infof("Updating %s ...", outputFile.Name())
 			fields := []string{
 				name,
 				strings.Join(e.Args, " "),
