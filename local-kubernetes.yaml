@@ -1,6 +1,6 @@
 testcases:
   minikube:
-    setup: minikube start
+    setup: minikube start --memory=max --cpus=max
     teardown: minikube delete
   k3d:
     setup: k3d cluster create
