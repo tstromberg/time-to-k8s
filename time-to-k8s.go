@@ -12,8 +12,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/tstromberg/cstat/pkg/cstat"
 	"gopkg.in/yaml.v2"
 	"k8s.io/klog/v2"
 )
@@ -40,6 +42,7 @@ type ExperimentResult struct {
 	ExitCode      int
 	Error         string
 	Timestamp     time.Time
+	CPUBusyPct    float64
 }
 
 // RunResult stores the result of an cmd.Run call
@@ -122,19 +125,38 @@ func ds(d time.Duration) string {
 	return fmt.Sprintf("%.3f", d.Seconds())
 }
 
-func runIteration(name string, setupCmd string, cleanupCmd string) (ExperimentResult, error) {
+func runIteration(name string, setupCmd string, cleanupCmd string) (e ExperimentResult, err error) {
 	setup := strings.Split(setupCmd, " ")
 	cleanup := strings.Split(cleanupCmd, " ")
 	binary := setup[0]
 
+	cr := cstat.NewRunner(time.Second)
+	var wg sync.WaitGroup
+
 	// maximum runtime of a test
 	ctx := context.Background()
 	ctx, cancel := context.WithTimeout(ctx, *testTimeout)
-	defer cancel()
+	defer func() {
+		cancel()
+		wg.Wait()
+	}()
 
 	klog.Infof("starting %q iteration. initialization args: %v, cleanup args: %v", name, setup, cleanup)
 
-	e := ExperimentResult{Name: name, Timestamp: time.Now(), Args: setup}
+	e = ExperimentResult{Name: name, Timestamp: time.Now(), Args: setup}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		e.CPUBusyPct = cr.Run(ctx).Busy * 100
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range cr.C() {
+		}
+	}()
 
 	rr, err := Run(exec.CommandContext(ctx, binary, "version"))
 	if err != nil {
@@ -251,7 +273,7 @@ func main() {
 
 	c := csv.NewWriter(outputFile)
 
-	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "total duration (seconds)"})
+	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "cpu busy (percent)", "total duration (seconds)"})
 	klog.Infof("Writing output to %s", outputFile.Name())
 	c.Flush()
 
@@ -298,6 +320,7 @@ func main() {
 				ds(e.DNSSvc),
 				ds(e.AppRunning),
 				ds(e.DNSAnswering),
+				fmt.Sprintf("%.2f", e.CPUBusyPct),
 				ds(e.Total),
 			}
 			c.Write(fields)

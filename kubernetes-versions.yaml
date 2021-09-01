@@ -1,7 +1,4 @@
 testcases:
-  minikube-113:
-    setup: minikube start --driver=docker --kubernetes-version=v1.13.12
-    teardown: minikube delete --all
   minikube-114:
     setup: minikube start --driver=docker --kubernetes-version=v1.14.10
     teardown: minikube delete --all
