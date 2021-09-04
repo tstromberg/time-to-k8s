@@ -273,7 +273,7 @@ func main() {
 
 	c := csv.NewWriter(outputFile)
 
-	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "cpu busy (percent)", "total duration (seconds)"})
+	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "total duration (seconds)", "cpu busy (percent)"})
 	klog.Infof("Writing output to %s", outputFile.Name())
 	c.Flush()
 
@@ -320,8 +320,8 @@ func main() {
 				ds(e.DNSSvc),
 				ds(e.AppRunning),
 				ds(e.DNSAnswering),
-				fmt.Sprintf("%.2f", e.CPUBusyPct),
 				ds(e.Total),
+				fmt.Sprintf("%.2f", e.CPUBusyPct),
 			}
 			c.Write(fields)
 			c.Flush()
