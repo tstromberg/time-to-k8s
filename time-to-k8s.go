@@ -43,6 +43,7 @@ type ExperimentResult struct {
 	Error         string
 	Timestamp     time.Time
 	CPUBusyPct    float64
+	CPUTime       time.Duration
 }
 
 // RunResult stores the result of an cmd.Run call
@@ -148,7 +149,9 @@ func runIteration(name string, setupCmd string, cleanupCmd string) (e Experiment
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		e.CPUBusyPct = cr.Run(ctx).Busy * 100
+		bp := cr.Run(ctx).Busy
+		e.CPUBusyPct = bp * 100
+		e.CPUTime = time.Duration(bp * float64(e.Total.Nanoseconds()))
 	}()
 
 	wg.Add(1)
@@ -273,7 +276,7 @@ func main() {
 
 	c := csv.NewWriter(outputFile)
 
-	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "cpu busy (percent)", "total duration (seconds)"})
+	c.Write([]string{"name", "args", "platform", "iteration", "time", "version", "exitcode", "error", "command exec (seconds)", "apiserver answering (seconds)", "kubernetes svc (seconds)", "dns svc (seconds)", "app running (seconds)", "dns answering (seconds)", "cpu busy (percent)", "total duration (seconds)", "cpu time (seconds)"})
 	klog.Infof("Writing output to %s", outputFile.Name())
 	c.Flush()
 
@@ -322,6 +325,7 @@ func main() {
 				ds(e.DNSAnswering),
 				fmt.Sprintf("%.2f", e.CPUBusyPct),
 				ds(e.Total),
+				ds(e.CPUTime),
 			}
 			c.Write(fields)
 			c.Flush()
